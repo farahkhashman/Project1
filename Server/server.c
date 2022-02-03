@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
     hints.ai_flags = AI_PASSIVE;
 
     // checks for address information errors
-    if((rv = getaddrinfo(NULL, argv[2], &hints, &servinfo)) != 0) {
+    if((rv = getaddrinfo("127.0.0.1", argv[2], &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return 1;
     }
@@ -117,6 +117,11 @@ int main(int argc, char *argv[]) {
         // takes address and converts to string to be printed
         inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
         printf("server: got connection from %s\n", s);
+        if (send(new_fd, "Hello, world!", 13, 0) == -1) {
+            perror("didnt send");
+            exit(-1);
+        }
+
 
 
         close(new_fd);
