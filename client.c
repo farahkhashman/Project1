@@ -1,16 +1,16 @@
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
 #include <netdb.h>
+#include <sys/types.h>
+
 #include <arpa/inet.h>
 
-#define MAXDATASIZE 100
+#define MAXDATASIZE 100 //max number of bytes we can get at once
 
+/* cannot use yet
 void request_and_write(int sockfd, char * fn) {
     int n, numbytes;
     FILE *fp;
@@ -27,15 +27,17 @@ void request_and_write(int sockfd, char * fn) {
     // adds a null terminator at the end of the received string
     buf[numbytes] = '\0';
     printf("client: received file length: '%s'\n", buf);
-    int file_length = atof(buf);
+    //int file_length = atof(buf);
+    int file_length = atoi(buf);
     bzero(buf, MAXDATASIZE);
-    printf("client: converted file length to float: '%f'\n", file_length);
+    //printf("client: converted file length to float: '%f'\n", file_length);
+    printf("client: converted file length to int: '%d'\n", file_length);
 
     char file_content[file_length];
 
     fp = fopen(filename, "w");
     if(fp==NULL) {
-        perror("client: Error in creating file");
+        perror("client: Error in creating file\n");
         exit(1);
     }
 
@@ -53,8 +55,10 @@ void request_and_write(int sockfd, char * fn) {
     return;
 
 }
-
-void *get_in_addr(struct sockaddr *sa) {
+*/
+//get sockaddr, IPv4 or IPv6
+void *get_in_addr(struct sockaddr *sa)
+{
     if(sa->sa_family == AF_INET) {
         return &(((struct sockaddr_in*)sa)->sin_addr);
     }
@@ -63,30 +67,32 @@ void *get_in_addr(struct sockaddr *sa) {
 
 int main(int argc, char *argv[]) {
 
-    int sockfd, numbytes, port, rv;
+    //int sockfd, numbytes, port, rv;
+    int sockfd, numbytes;
     // struct for server information
     struct addrinfo hints, *servinfo, *p;
+    int rv;
     char s[INET6_ADDRSTRLEN];
 
-    // initialises the pointer and sets all allocated spacees to zero.
+    if (argc < 4) {
+        fprintf(stderr,"usage %s Server IP Address, Server Port, File Name for Transfer\n", argv[0]);
+        perror("Input Arguments\n");
+        exit(1);
+    }
+
+
+    // initialises the pointer and sets all allocated spaces to zero.
     memset(&hints, 0, sizeof hints);
     // sets it to accepts both IPv4 or IPv6
     hints.ai_family = AF_UNSPEC;
     // sets sock of streaming type (i.e TCP)
     hints.ai_socktype = SOCK_STREAM;
 
-
-    if (argc < 4) {
-        fprintf(stderr,"usage %s Server IP Address, Server Port, File Name for Transfer\n", argv[0]);
-        perror("Input Arguments");
-        exit(1);
-    }
-
-    // converts the inputed port number to integer value
-    port = atoi(argv[2]);
+    //reads in inputting port as string
+    char *port = argv[2];
 
     // returns linked list of one or more addrinfo structures, where each one contains an Internet address that can be connected to
-    if((rv = getaddrinfo(argv[1], argv[2], &hints, &servinfo)) != 0) {
+    if((rv = getaddrinfo(argv[1], port, &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return 1;
     }
@@ -115,23 +121,22 @@ int main(int argc, char *argv[]) {
 
     // converts address to string
     inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr), s, sizeof s);
-    printf("Client: connecting to %s\n", s);
+    printf("client_1: connecting to %s\n", s);
 
     // frees the allocated memory to servinfo
     freeaddrinfo(servinfo);
     char buf[MAXDATASIZE];
 
-    // if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
-    //     perror("recv");
-    //     exit(1);
-    // }
+    if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
+      perror("recv");
+      exit(1);
+    }
 
-    // buf[numbytes] = '\0';
+    buf[numbytes] = '\0';
 
-    // printf("client: received '%s'\n",buf);
+    printf("client_2: received '%s'\n",buf);
 
-
-    int network_byte_order;
+    size_t network_byte_order;
 
     // convert and send length of filename
 
@@ -139,21 +144,21 @@ int main(int argc, char *argv[]) {
     sprintf(buf,"%ld", network_byte_order);
     int lr, fn;
     lr = send(sockfd, buf, sizeof(buf), 0);
-
+    printf("client_2: %d\n",lr);
 
     //char *file_name = argv[3]+'\0';
     char *file_name = argv[3];
 
-    printf("Client: %s\n", argv[3]);
-    printf("Client: %d\n", strlen(argv[3]));
+    printf("client_3: %s\n", argv[3]);
+    printf("client_4: %ld\n", strlen(argv[3]));
 
-    printf("Client: file_name %s\n", file_name);
-    printf("Client: %d\n", strlen(file_name));
+    printf("client_5: file_name %s\n", file_name);
+    printf("client_6: %ld\n", strlen(file_name));
 
 
 
     fn = send(sockfd, file_name, strlen(file_name), 0);
-
+    printf("client_7: %d\n",fn);
 
 
     // // sends/requests inputted filename

@@ -16,23 +16,25 @@
 
 void sigchld_handler(int s)
 {
-    // waitpid() might overwrite errno, so we save and restore it:
-    int saved_errno = errno;
+  (void)s;
+  // waitpid() might overwrite errno, so we save and restore it:
+  int saved_errno = errno;
 
-    while(waitpid(-1, NULL, WNOHANG) > 0);
+  while(waitpid(-1, NULL, WNOHANG) > 0);
 
-    errno = saved_errno;
+  errno = saved_errno;
 }
 
+//get sockaddr, IPv4 or IPv6
 void *get_in_addr(struct sockaddr *sa)
 {
     if (sa->sa_family == AF_INET) {
         return &(((struct sockaddr_in*)sa)->sin_addr);
     }
-  return 0;
+  return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-
+/*
 void clearbuf(char *buf, int len)
 {
     int i = 0;
@@ -41,15 +43,15 @@ void clearbuf(char *buf, int len)
         i++;
     }
 }
-
+*/
 int main(int argc, char *argv[]) {
 
-  int port;
+  char *port;
 
     // takes in the port number as an input
   if (argc >= 2) {
-    port = atoi(argv[1]);
-    printf("port is: %d\n", port);
+    port = argv[1];
+    printf("port is: %s\n", port);
 	}
 	else {
     perror("Port Input");
@@ -58,21 +60,20 @@ int main(int argc, char *argv[]) {
 	}
 
   // listen on sock_fd, new connections on new_fd
-  int sock_fd, new_fd;
+  int sockfd, new_fd;
   // struct to specify settings for server information
-  //struct addrinfo hints, *servinfo, *p;
-  struct addrinfo hints;
+  struct addrinfo hints, *servinfo, *p;
   // connector's address information
   struct sockaddr_storage their_addr;
   //struct hostent *server;
   socklen_t sin_size;
   // structure to allow us to specify how to handle signals
   struct sigaction sa;
-  //int yes=1;
+  int yes=1;
   // storage for an IPv6 address
   char s[INET6_ADDRSTRLEN];
   // variable for received value
-  //int rv;
+  int rv;
 
   // initialises the pointer and sets all allocated spacees to zero.
   memset(&hints, 0, sizeof hints);
@@ -83,26 +84,36 @@ int main(int argc, char *argv[]) {
   // use my IP
   hints.ai_flags = AI_PASSIVE;
 
-
-  sock_fd = socket(PF_INET, SOCK_STREAM,0); //PF for socket/port in protocol
-  struct sockaddr_in addrPort;
-  addrPort.sin_family = AF_INET; //sets IPv4
-  addrPort.sin_addr.s_addr = inet_addr("129.74.152.73");
-  addrPort.sin_port = htons(port);
-
-  //bind the socket
-  //error message if fails
-  if(bind(sock_fd, (struct sockaddr *) &addrPort, sizeof(addrPort)) == -1){
-      printf("socket: Bind failed to port %d\n",port);
-      return 0;
+  if ((rv = getaddrinfo(NULL, port, &hints, &servinfo)) !=0) {
+    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+    return 1;
   }
-  else printf("socket: Bind success to port %d\n",port);
 
-  if(listen(sock_fd,10)){
-    printf("Listen Failed\n");
+  for(p = servinfo; p != NULL; p = p->ai_next){
+    if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1){
+      perror("server: socket");
+      continue;
+    }
+    if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int))==-1){
+      perror("setsocketopt");
+      exit(1);
+    }
+    if(bind(sockfd, p->ai_addr, p->ai_addrlen)==-1){
+      close(sockfd);
+      perror("server: bind");
+      continue;
+    }
+    break;
   }
-  else {
-    printf("Listening...\n");
+  freeaddrinfo(servinfo); //all dont with this structure
+
+  if (p==NULL) {
+    fprintf(stderr, "server: failed to bind\n");
+    exit(1);
+  }
+  if(listen(sockfd, BACKLOG) == -1){
+    perror("listen");
+    exit(1);
   }
 
   sa.sa_handler = sigchld_handler; // reap all dead processes
@@ -113,26 +124,37 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
 
+
   printf("server: waiting for connection...\n");
 
-  while(1) {
+  while(1) { //main accept() loop
     sin_size = sizeof their_addr;
-    new_fd = accept(sock_fd, (struct sockaddr *)&their_addr, &sin_size);
+    new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
     // logs accepting error
     if(new_fd == -1) {
-      printf("error");
       perror("accept");
-      return 0;
+      continue;
     }
 
     // takes address and converts to string to be printed
     inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
     printf("server: got connection from %s\n", s);
-    // if (send(new_fd, "Hello, world!", 13, 0) == -1) {
-    //     perror("didnt send");
-    //     exit(-1);
-    // }
 
+    /*
+    if (!fork()){ //this is the child processes
+      close(sockfd); //child doesn't need the listener
+      if (send(new_fd, "Hello, world!", 13,0) == -1)
+        perror("send");
+      close(new_fd);
+      exit(0);
+    }
+    */
+
+     close(new_fd);
+  }
+
+
+  /*
     char buf[MAXDATASIZE];
     int numbytes;
 
@@ -183,6 +205,7 @@ int main(int argc, char *argv[]) {
     close(new_fd);
     exit(0);
   }
+  */
 
   return 0;
 }
