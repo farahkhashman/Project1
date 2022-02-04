@@ -49,7 +49,7 @@ void request_and_write(int sockfd, char * fn) {
         bzero(file_content, file_length);
     }
     
-    close(fp);
+    // close(fp);
     return;
     
 }
@@ -83,10 +83,10 @@ int main(int argc, char *argv[]) {
     }
 
     // converts the inputed port number to integer value
-    port = atoi(argv[3]);
+    port = atoi(argv[2]);
 
     // returns linked list of one or more addrinfo structures, where each one contains an Internet address that can be connected to
-    if((rv = getaddrinfo(argv[1], port, &hints, &servinfo)) != 0) {
+    if((rv = getaddrinfo(argv[1], argv[2], &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return 1;
     }
@@ -124,7 +124,7 @@ int main(int argc, char *argv[]) {
     uint32_t network_byte_order;
 
     // convert and send length of filename
-    network_byte_order = htonl(strlen(argv[4]));
+    network_byte_order = htonl(strlen(argv[3]));
 
     int lr, fn;
 
@@ -134,12 +134,12 @@ int main(int argc, char *argv[]) {
     }
 
     // sends/requests inputted filename
-    if (fn = write(sockfd, argv[4], strlen(argv[4])) == -1) {
+    if (fn = write(sockfd, argv[3], strlen(argv[3])) == -1) {
         perror("write");
         exit(1);
     }
 
-    request_and_write(sockfd, argv[4]);
+    // request_and_write(sockfd, argv[3]);
 
     //TODO: print the final exit of time and stuff
 

@@ -13,6 +13,16 @@
 
 #define BACKLOG 10
 
+void sigchld_handler(int s)
+{
+    // waitpid() might overwrite errno, so we save and restore it:
+    int saved_errno = errno;
+
+    while(waitpid(-1, NULL, WNOHANG) > 0);
+
+    errno = saved_errno;
+}
+
 void *get_in_addr(struct sockaddr *sa)
 {
     if (sa->sa_family == AF_INET) {
@@ -63,7 +73,7 @@ int main(int argc, char *argv[]) {
     hints.ai_flags = AI_PASSIVE;
 
     // checks for address information errors
-    if((rv = getaddrinfo("127.0.0.1", argv[2], &hints, &servinfo)) != 0) {
+    if((rv = getaddrinfo("129.74.152.125", argv[2], &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return 1;
     }
@@ -90,22 +100,39 @@ int main(int argc, char *argv[]) {
     }
 
     // clears the allocaated space for this structure 
-    freeaddrinfo(servinfo);
+    // freeaddrinfo(servinfo);
 
     if(p == NULL) {
         fprintf(stderr, "server: failed to bind\n");
         exit(1);
     }
 
-    //listening for connections
-    if(listen(sock_fd, BACKLOG) == -1) {
-        perror("listen");
+    if(listen(sock_fd,10)){
+        printf("Listen Failed\n");
+    }
+    else {
+        printf("Listening...\n");
+        printf("server: waiting for connection...");
+    } 
+
+    // //listening for connections
+    // if(listen(sock_fd, BACKLOG) == -1) {
+    //     perror("listen");
+    //     exit(1);
+    // }
+
+    sa.sa_handler = sigchld_handler; // reap all dead processes
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART;
+    if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+        perror("sigaction");
         exit(1);
     }
 
     printf("server: waiting for connection...");
 
     while(1) {
+        printf("enters while loop?");
         sin_size = sizeof their_addr;
         new_fd = accept(sock_fd, (struct sockaddr *)&their_addr, &sin_size);
         // logs accepting error
