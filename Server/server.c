@@ -12,6 +12,7 @@
 #include <arpa/inet.h>
 
 #define BACKLOG 10
+#define MAXDATASIZE 100
 
 void sigchld_handler(int s)
 {
@@ -29,6 +30,16 @@ void *get_in_addr(struct sockaddr *sa)
         return &(((struct sockaddr_in*)sa)->sin_addr);
     }
 
+}
+
+
+void clearbuf(char *buf, int len)
+{
+    int i = 0;
+    while(i<len) {
+        buf[i] = 0;
+        i++;
+    }
 }
 
 int main(int argc, char *argv[]) {
@@ -72,54 +83,26 @@ int main(int argc, char *argv[]) {
     // use my IP
     hints.ai_flags = AI_PASSIVE;
 
-    // checks for address information errors
-    if((rv = getaddrinfo("129.74.152.125", argv[2], &hints, &servinfo)) != 0) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-        return 1;
-    }
 
-    // loop through all the results in the provided linked list and binds to the first we can
-    for(p = servinfo; p != NULL; p=p->ai_next) {
-        // unsuccessful 
-        if((sock_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
-            perror("server: socket");
-            continue;
-        }
-        // sets socket options to allow for reusing the address
-        if(setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
-            perror("setsockopt");
-            exit(1);
-        }
-        // binding 
-        if(bind(sock_fd, p->ai_addr, p->ai_addrlen) == -1) {
-            close(sock_fd);
-            perror("server: bind");
-            continue;
-        }
-        break;
-    }
+    sock_fd = socket(PF_INET, SOCK_STREAM,0); //PF for socket/port in protocol
+    struct sockaddr_in addrPort; 
+    addrPort.sin_family = AF_INET; //sets IPv4
+    addrPort.sin_addr.s_addr = inet_addr("129.74.152.125"); 
+    addrPort.sin_port = htons(port);
 
-    // clears the allocaated space for this structure 
-    // freeaddrinfo(servinfo);
-
-    if(p == NULL) {
-        fprintf(stderr, "server: failed to bind\n");
-        exit(1);
+    //bind the socket
+    //error message if fails
+    if(bind(sock_fd, (struct sockaddr *) &addrPort, sizeof(addrPort)) == -1){
+        printf("socket: Bind failed to port %d\n",port);
     }
+    else printf("socket: Bind success to port %d\n",port);
 
     if(listen(sock_fd,10)){
         printf("Listen Failed\n");
     }
     else {
         printf("Listening...\n");
-        printf("server: waiting for connection...");
     } 
-
-    // //listening for connections
-    // if(listen(sock_fd, BACKLOG) == -1) {
-    //     perror("listen");
-    //     exit(1);
-    // }
 
     sa.sa_handler = sigchld_handler; // reap all dead processes
     sigemptyset(&sa.sa_mask);
@@ -129,10 +112,9 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    printf("server: waiting for connection...");
+    printf("server: waiting for connection...\n");
 
     while(1) {
-        printf("enters while loop?");
         sin_size = sizeof their_addr;
         new_fd = accept(sock_fd, (struct sockaddr *)&their_addr, &sin_size);
         // logs accepting error
@@ -144,10 +126,50 @@ int main(int argc, char *argv[]) {
         // takes address and converts to string to be printed
         inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
         printf("server: got connection from %s\n", s);
-        if (send(new_fd, "Hello, world!", 13, 0) == -1) {
-            perror("didnt send");
-            exit(-1);
+        // if (send(new_fd, "Hello, world!", 13, 0) == -1) {
+        //     perror("didnt send");
+        //     exit(-1);
+        // }
+
+        char buf[MAXDATASIZE];
+        int numbytes;
+
+        if ((numbytes = recv(new_fd, buf, MAXDATASIZE-1, 0)) == -1) {
+            perror("recv");
+            exit(1);
         }
+
+        buf[numbytes] = '\0';
+        // convert and send length of filename
+        int network_byte_order = ntohs(atoi(buf));
+
+        printf("server: received '%s'\n",buf);
+        printf("server: received '%d'\n", network_byte_order);
+
+        clearbuf(buf, strlen(buf));
+
+        int buflen = 2048;
+        char *buf1 = malloc(buflen * sizeof(char));
+        memset(buf1, 0, buflen);
+
+        printf("server: length of buf1 '%d'\n",strlen(buf1));
+
+        int numbytes1;
+
+        if ((numbytes1 = recv(new_fd, buf1, network_byte_order, 0)) == -1) {
+            perror("recv");
+            exit(1);
+        }
+
+        printf("server: received '%s'\n",buf1);
+
+        buf1[network_byte_order+1] = '0';
+    
+
+        printf("server: received nbo '%d'\n",network_byte_order);
+        printf("server: received nb '%d'\n",numbytes1);
+        printf("server: received '%s'\n",buf1);
+        printf("server: length of buf1 '%d'\n",strlen(buf1));
 
 
 

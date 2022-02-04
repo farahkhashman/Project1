@@ -119,25 +119,49 @@ int main(int argc, char *argv[]) {
 
     // frees the allocated memory to servinfo
     freeaddrinfo(servinfo);
+    char buf[MAXDATASIZE];
 
+    // if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
+    //     perror("recv");
+    //     exit(1);
+    // }
 
-    uint32_t network_byte_order;
+    // buf[numbytes] = '\0';
+
+    // printf("client: received '%s'\n",buf);
+   
+
+    int network_byte_order;
 
     // convert and send length of filename
-    network_byte_order = htonl(strlen(argv[3]));
 
+    network_byte_order = htons(strlen(argv[3]));
+    sprintf(buf,"%ld", network_byte_order);
     int lr, fn;
+    lr = send(sockfd, buf, sizeof(buf), 0);
 
-    if (lr = send(sockfd, &network_byte_order, sizeof(uint32_t), 0) == -1) {
-        perror("write length");
-        exit(1);
-    }
 
-    // sends/requests inputted filename
-    if (fn = write(sockfd, argv[3], strlen(argv[3])) == -1) {
-        perror("write");
-        exit(1);
-    }
+    char *file_name = argv[3]+'\0';
+
+    printf("Client: %s\n", argv[3]);
+    printf("Client: %d\n", strlen(argv[3]));
+
+    printf("Client: file_name %s\n", file_name);
+    printf("Client: %d\n", strlen(file_name));
+
+    
+
+    fn = send(sockfd, file_name, strlen(file_name), 0);
+
+
+
+
+
+    // // sends/requests inputted filename
+    // if (fn = write(sockfd, argv[3], strlen(argv[3])) == -1) {
+    //     perror("write");
+    //     exit(1);
+    // }
 
     // request_and_write(sockfd, argv[3]);
 
