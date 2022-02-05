@@ -8,7 +8,7 @@
 
 #include <arpa/inet.h>
 
-#define MAXDATASIZE 100 //max number of bytes we can get at once
+#define MAXDATASIZE 200 //max number of bytes we can get at once
 
 /* cannot use yet
 void request_and_write(int sockfd, char * fn) {
@@ -127,38 +127,78 @@ int main(int argc, char *argv[]) {
     freeaddrinfo(servinfo);
     char buf[MAXDATASIZE];
 
+    //FIRST CLIENT RECIEVE
+    if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
+      perror("recv");
+      exit(1);
+    }
+    buf[numbytes] = '\0';
+    printf("client_2: received '%s'\n",buf);
+    size_t network_byte_order;
+    // convert and send length of filename
+    network_byte_order = htons(strlen(argv[3]));
+    sprintf(buf,"%ld", network_byte_order);
+
+    //FIRST CLIENT SEND
+    if (send(sockfd, buf, sizeof(buf) ,0) == -1){
+      perror("send");
+      exit(1);
+    }
+
+    //SECOND CLIENT RECIEVE
     if ((numbytes = recv(sockfd, buf, MAXDATASIZE-1, 0)) == -1) {
       perror("recv");
       exit(1);
     }
 
     buf[numbytes] = '\0';
+    printf("client second recieve: received '%s'\n",buf);
 
-    printf("client_2: received '%s'\n",buf);
 
-    size_t network_byte_order;
+    //SECOND CLIENT SEND
+    int client_error = send(sockfd, buf, sizeof(buf) ,0);
+    if (client_error == -1){
+      perror("send");
+      exit(1);
+    }
+    printf("second client send error %d\n", client_error);
+    printf("second client send argv 3: %s\n", argv[3]);
+    printf("second client send len of argv 3: %ld\n", strlen(argv[3]));
 
-    // convert and send length of filename
+    printf("second client send buffer: file_name %s\n", buf);
+    printf("second client send sizeof buffer: %ld\n", sizeof(buf));
+    //close(new_fd);
+    //exit(0);
 
-    network_byte_order = htons(strlen(argv[3]));
-    sprintf(buf,"%ld", network_byte_order);
-    int lr, fn;
-    lr = send(sockfd, buf, sizeof(buf), 0);
-    printf("client_2: %d\n",lr);
+    //int lr, fn;
+    //lr = send(sockfd, buf, sizeof(buf), 0);
+    //printf("client_2: %d\n",lr);
+
 
     //char *file_name = argv[3]+'\0';
-    char *file_name = argv[3];
 
+    //THIRD CLIENT SEND
+    char buf_title[MAXDATASIZE];
+    char *file_name = argv[3];
+    sprintf(buf_title,"%s", file_name);
+
+    client_error = send(sockfd, buf_title, sizeof(buf_title) ,0);
+    if (client_error == -1){
+      perror("send");
+      exit(1);
+    }
+
+    printf("client_error: %d\n", client_error);
     printf("client_3: %s\n", argv[3]);
     printf("client_4: %ld\n", strlen(argv[3]));
 
-    printf("client_5: file_name %s\n", file_name);
-    printf("client_6: %ld\n", strlen(file_name));
+    printf("client_5: file_name %s\n", buf_title);
+    printf("client_6: %ld\n", sizeof(buf_title));
 
 
 
-    fn = send(sockfd, file_name, strlen(file_name), 0);
-    printf("client_7: %d\n",fn);
+    //fn = send(sockfd, file_name, strlen(file_name), 0);
+    //printf("client_7: %d\n",fn);
 
 
     // // sends/requests inputted filename

@@ -34,7 +34,7 @@ void *get_in_addr(struct sockaddr *sa)
   return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-/*
+
 void clearbuf(char *buf, int len)
 {
     int i = 0;
@@ -43,7 +43,7 @@ void clearbuf(char *buf, int len)
         i++;
     }
 }
-*/
+
 int main(int argc, char *argv[]) {
 
   char *port;
@@ -140,6 +140,57 @@ int main(int argc, char *argv[]) {
     inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
     printf("server: got connection from %s\n", s);
 
+    //FIRST SERVER SEND
+    if (send(new_fd, "Hello, world!", 13,0) == -1){
+      perror("send");
+      exit(1);
+    }
+
+    //FIRST SERVER RECIEVE
+    char buf[MAXDATASIZE];
+    int numbytes;
+    if ((numbytes = recv(new_fd, buf, MAXDATASIZE-1, 0)) == -1) {
+      perror("recv");
+      exit(1);
+    }
+    buf[numbytes] = '\0';
+    printf("server:hi fuckers received '%s'\n",buf);
+    buf[0] = 'h';
+    printf("server:hi fuckers received '%s'\n",buf);
+
+    clearbuf(buf, sizeof(buf));
+    printf("server: the buffer cleared now hopefully: '%s'\n",buf);
+
+    //SECOND SERVER SEND
+    if (send(new_fd, "Hello, bitch!", 13,0) == -1){
+      perror("send");
+      exit(1);
+    }
+
+    //SECOND SERVER RECIEVE
+    if ((numbytes = recv(new_fd, buf, MAXDATASIZE-1, 0)) == -1) {
+      perror("recv");
+      exit(1);
+    }
+    buf[numbytes] = '\0';
+    printf("server:hi fuckers received '%s'\n",buf);
+    buf[0] = 'h';
+    printf("server:hi fuckers received '%s'\n",buf);
+    // convert and send length of filename
+    //int network_byte_order = ntohs(atoi(buf));
+    //printf("server: received '%d'\n",network_byte_order);
+
+    //THIRD SERVER RECIEVE
+    if ((numbytes = recv(new_fd, buf, MAXDATASIZE-1, 0)) == -1) {
+      perror("recv");
+      exit(1);
+    }
+    buf[numbytes] = '\0';
+    printf("server: received '%s'\n",buf);
+
+  }
+    //close(new_fd);
+    //exit(0);
     /*
     if (!fork()){ //this is the child processes
       close(sockfd); //child doesn't need the listener
@@ -149,12 +200,26 @@ int main(int argc, char *argv[]) {
       exit(0);
     }
     */
+    //char buf[MAXDATASIZE];
+    //int numbytes;
+
+    /*
+    if ((numbytes = recv(new_fd, buf, MAXDATASIZE-1, 0)) == -1) {
+      perror("recv");
+      exit(1);
+    }
+
+    buf[numbytes] = '\0';
+    int network_byte_order = ntohs(atoi(buf));
+    printf("server: received in buf '%s'\n",buf);
+    printf("server: received '%d'\n", network_byte_order);
+
 
      close(new_fd);
   }
 
 
-  /*
+
     char buf[MAXDATASIZE];
     int numbytes;
 
