@@ -46,7 +46,7 @@ void *get_in_addr(struct sockaddr *sa) {
 
 int main(int argc, char *argv[]) {
 
-    int sockfd, rv;
+    int sockfd, port, rv;
     // struct for server information
     struct addrinfo hints, *servinfo, *p;
     char s[INET6_ADDRSTRLEN];
@@ -65,7 +65,8 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    
+    // converts the inputed port number to integer value
+    port = atoi(argv[2]);
 
     // returns linked list of one or more addrinfo structures, where each one contains an Internet address that can be connected to
     if((rv = getaddrinfo(argv[1], argv[2], &hints, &servinfo)) != 0) {
@@ -103,17 +104,21 @@ int main(int argc, char *argv[]) {
     freeaddrinfo(servinfo);
 
     // convert and send length of filename
+    int len, bytes_sent;
     char *file_name = argv[3];
+    len = strlen(file_name);
 
     char buf[MAXDATASIZE];
     int network_byte_order;
     network_byte_order = htons(strlen(file_name));
     sprintf(buf,"%d", network_byte_order);
-
+    int lr;
+    lr = send(sockfd, buf, strlen(buf), 0);
 
     sleep(1);
 
     // send the inputted file name
+    bytes_sent = send(sockfd, file_name, strlen(file_name), 0);
 
     memset(buf, 0, strlen(buf));
 
