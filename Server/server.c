@@ -33,23 +33,23 @@ void *get_in_addr(struct sockaddr *sa)
 }
 
 
-void clearbuf(char *buf, int len)
-{
-    int i = 0;
-    while(i<len) {
-        buf[i] = 0;
-        i++;
-    }
-}
-
 int main(int argc, char *argv[]) {
 
     int port;
 
-    // takes in the port number as an input
+    // ensures that inputs are provided
     if (argc >= 2) {
+        // saves inputed port number to variable
 	    port = atoi(argv[1]);
-        printf("port is: %d\n", port);
+
+        // validates port number to be between 41000 and 41999
+        if(port >= 41000 && port <= 41999) 
+            printf("port is: %d\n", port);
+        else {
+            perror("Port Input");
+            fprintf(stderr, "Please enter a valid port number between 41000 and 41999.\n");
+            return 0;
+        }
 	}
 	else {
         perror("Port Input");
@@ -84,25 +84,33 @@ int main(int argc, char *argv[]) {
     hints.ai_flags = AI_PASSIVE;
 
 
-    sock_fd = socket(PF_INET, SOCK_STREAM,0); //PF for socket/port in protocol
+    sock_fd = socket(AF_INET, SOCK_STREAM,0); //PF for socket/port in protocol
     struct sockaddr_in addrPort; 
-    addrPort.sin_family = AF_INET; //sets IPv4
+    addrPort.sin_family = AF_INET; 
+    // sets the ip address for the server
     addrPort.sin_addr.s_addr = inet_addr("129.74.152.125"); 
+    // sets the inputted port number for the server 
     addrPort.sin_port = htons(port);
 
     //bind the socket
     //error message if fails
     if(bind(sock_fd, (struct sockaddr *) &addrPort, sizeof(addrPort)) == -1){
         printf("socket: Bind failed to port %d\n",port);
+        perror("bind");
+        exit(1);
     }
     else printf("socket: Bind success to port %d\n",port);
 
+    // listening for new connections
     if(listen(sock_fd,10)){
         printf("Listen Failed\n");
+        perror("listen");
+        exit(1);
     }
     else {
         printf("Listening...\n");
     } 
+
 
     sa.sa_handler = sigchld_handler; // reap all dead processes
     sigemptyset(&sa.sa_mask);
@@ -116,6 +124,7 @@ int main(int argc, char *argv[]) {
 
     while(1) {
         sin_size = sizeof their_addr;
+        // accepts incoming connection
         new_fd = accept(sock_fd, (struct sockaddr *)&their_addr, &sin_size);
         // logs accepting error
         if(new_fd == -1) {
@@ -126,52 +135,126 @@ int main(int argc, char *argv[]) {
         // takes address and converts to string to be printed
         inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
         printf("server: got connection from %s\n", s);
-        // if (send(new_fd, "Hello, world!", 13, 0) == -1) {
-        //     perror("didnt send");
-        //     exit(-1);
-        // }
 
         char buf[MAXDATASIZE];
         int numbytes;
+        int numbytes1;
 
-        if ((numbytes = recv(new_fd, buf, MAXDATASIZE-1, 0)) == -1) {
+        // receives the 16-bit binary value of the length of the filename
+        if((numbytes1 = recv(new_fd, buf, MAXDATASIZE-1, 0)) == -1) {
+            perror("recv");
+            exit(1);
+        }
+
+        // adds null terminator
+        buf[numbytes1] = '\0';
+        // converts the 16-bit binary value from network to short form
+        int network_byte_order = ntohs(atoi(buf));
+
+            // printf("server: received '%s'\n", buf);
+            // printf("server: received '%d'\n", numbytes1);
+        printf("server: received '%d'\n", network_byte_order);
+
+        // resets the buffer to zero to ensure no character leaks from prior initialisation
+        memset(buf, 0, strlen(buf));
+
+        // receives the file name
+        if ((numbytes = recv(new_fd, buf, network_byte_order, 0)) == -1) {
             perror("recv");
             exit(1);
         }
 
         buf[numbytes] = '\0';
-        // convert and send length of filename
-        int network_byte_order = ntohs(atoi(buf));
 
         printf("server: received '%s'\n",buf);
-        printf("server: received '%d'\n", network_byte_order);
 
-        clearbuf(buf, strlen(buf));
+        
+        FILE *file;
+        file = fopen(buf, "r");
 
-        int buflen = 2048;
-        char *buf1 = malloc(buflen * sizeof(char));
-        memset(buf1, 0, buflen);
+        // attempts to open the given file
+        if(file) {
+             // seek to end of file
+            fseek(file, 0, SEEK_END);
+            // get current file pointer
+            int size = ftell(file); 
+                // printf("server: file size: %d\n", size);
+            // seek back to beginning of file
+            fseek(file, 0, SEEK_SET); 
 
-        printf("server: length of buf1 '%d'\n",strlen(buf1));
+            // converts size to 32-bit binary
+            int byteorder = htonl(size);
+                // printf("server: file length in binary: %d\n", byteorder);
 
-        int numbytes1;
+            // create a buffer to store file length as a string
+            int buflen = 2048;
+            char file_length[buflen];
+            memset(file_length, 0, buflen);
+            sprintf(file_length,"%d", byteorder);
+                // printf("server: file length in binary string: %s\n", file_length);
 
-        if ((numbytes1 = recv(new_fd, buf1, network_byte_order, 0)) == -1) {
-            perror("recv");
+            // sends file length to client
+            int bytes_sent;
+            if((bytes_sent = send(new_fd, file_length, strlen(file_length), 0))==-1) {
+                perror("send");
+                exit(1);
+            }
+
+            printf("server: bytes sent of file: %d %s\n", bytes_sent, file_length);
+
+            sleep(0.1);
+
+            char c = fgetc(file);
+            int i = 0;
+            int send_bytes;
+            char each_character[2048];
+            memset(each_character, 0, strlen(each_character));
+                // printf("character is %c\n", c);
+                // printf("size is %d\n", size);
+
+            int count = 0;
+            // iterates and sends from file
+            while((c != EOF) && (i < size)) {
+                each_character[count] = c;
+                printf("buffer %s\n", each_character);
+                count++;
+                c = fgetc(file);
+
+                // if the size is small enough, we can send the file in chunks of 2048 instead of character by character
+                if(c != EOF  && size > 30 && count < 2048) {
+                    continue;
+                }
+
+                // sends the chunk
+                if((send_bytes = send(new_fd, each_character, count, 0)) == -1) {
+                    perror("send");
+                    exit(1);
+                }
+                    // printf("sent %d bytes of buffer %s of character %c\n", send_bytes, each_character, c);
+                memset(each_character, 0, strlen(each_character));
+                count = 0;
+                i++;
+                sleep(1);
+            }
+            fclose(file);
+        }
+        // if file not found in directory, returns error
+        else {
+            perror("file");
             exit(1);
         }
 
-        printf("server: received '%s'\n",buf1);
+        // return to listening
+        if(listen(sock_fd,10)){
+            printf("Listen Failed\n");
+            perror("listen");
+            exit(1);
+        }
+        else {
+            printf("Listening...\n");
+        } 
 
-        buf1[network_byte_order+1] = '0';
-    
-
-        printf("server: received nbo '%d'\n",network_byte_order);
-        printf("server: received nb '%d'\n",numbytes1);
-        printf("server: received '%s'\n",buf1);
-        printf("server: length of buf1 '%d'\n",strlen(buf1));
-
-
+        //TODO: socket timeout?
 
         close(new_fd);
         exit(0);
