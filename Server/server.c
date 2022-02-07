@@ -16,6 +16,7 @@
 
 void sigchld_handler(int s)
 {
+    (void)s;
     // waitpid() might overwrite errno, so we save and restore it:
     int saved_errno = errno;
 
@@ -64,7 +65,7 @@ int main(int argc, char *argv[]) {
     struct addrinfo hints, *servinfo, *p;
     // connector's address information
     struct sockaddr_storage their_addr;
-    struct hostent *server;
+    //struct hostent *server;
     socklen_t sin_size;
     // structure to allow us to specify how to handle signals 
     struct sigaction sa;
@@ -84,32 +85,55 @@ int main(int argc, char *argv[]) {
     hints.ai_flags = AI_PASSIVE;
 
 
-    sock_fd = socket(AF_INET, SOCK_STREAM,0); //PF for socket/port in protocol
-    struct sockaddr_in addrPort; 
-    addrPort.sin_family = AF_INET; 
-    // sets the ip address for the server
-    addrPort.sin_addr.s_addr = inet_addr("129.74.152.125"); 
-    // sets the inputted port number for the server 
-    addrPort.sin_port = htons(port);
+    // sock_fd = socket(AF_INET, SOCK_STREAM,0); //PF for socket/port in protocol
+    // struct sockaddr_in addrPort; 
+    // addrPort.sin_family = AF_INET; 
+    // // sets the ip address for the server
+    // addrPort.sin_addr.s_addr = inet_addr("129.74.152.125"); 
+    // // sets the inputted port number for the server 
+    // addrPort.sin_port = htons(port);
 
     //bind the socket
     //error message if fails
-    if(bind(sock_fd, (struct sockaddr *) &addrPort, sizeof(addrPort)) == -1){
-        printf("socket: Bind failed to port %d\n",port);
-        perror("bind");
+    if ((rv = getaddrinfo(NULL, argv[1], &hints, &servinfo)) != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+        return 1;
+    }
+    //loop through all the results and bind to the first we can
+    for(p = servinfo; p != NULL; p = p->ai_next){
+        if ((sock_fd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1){
+            perror("server: socket");
+            continue;
+        }
+        if(setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1){
+            perror("setsocketopt");
+            exit(1);
+        }
+        //bind the socket
+        //error message if fails
+        if(bind(sock_fd, p->ai_addr, p->ai_addrlen) == -1){
+            close(sock_fd);
+            printf("socket: Bind failed to port %d\n",port);
+            perror("server: bind");
+            continue;
+        }
+        break;
+        }
+    freeaddrinfo(servinfo); //all dont with this structure
+
+    if (p==NULL) {
+        fprintf(stderr, "server: failed to bind\n");
         exit(1);
     }
-    else printf("socket: Bind success to port %d\n",port);
-
-    // listening for new connections
-    if(listen(sock_fd,10)){
+    if(listen(sock_fd, BACKLOG) == -1){
         printf("Listen Failed\n");
         perror("listen");
         exit(1);
     }
     else {
         printf("Listening...\n");
-    } 
+    }
+
 
 
     sa.sa_handler = sigchld_handler; // reap all dead processes
@@ -214,14 +238,14 @@ int main(int argc, char *argv[]) {
 
             int count = 0;
             // iterates and sends from file
-            while((c != EOF) && (i < size)) {
+            while((i < size)) {
                 each_character[count] = c;
-                printf("buffer %s\n", each_character);
+                // printf("buffer %s\n", each_character);
                 count++;
                 c = fgetc(file);
 
                 // if the size is small enough, we can send the file in chunks of 2048 instead of character by character
-                if(c != EOF  && size > 30 && count < 2048) {
+                if(size >= 30 && count < 2048 && i+count<size) {
                     continue;
                 }
 
@@ -230,12 +254,17 @@ int main(int argc, char *argv[]) {
                     perror("send");
                     exit(1);
                 }
-                    // printf("sent %d bytes of buffer %s of character %c\n", send_bytes, each_character, c);
+                printf("sent %d\n", send_bytes);
+                     //printf("sent %d bytes of buffer %s of character %c\n", send_bytes, each_character, c);
                 memset(each_character, 0, strlen(each_character));
+                i=i+count;
                 count = 0;
-                i++;
-                sleep(1);
+                // sleep(0.5);
             }
+            if(c == EOF) {
+                printf("file ended\n");
+            }
+            printf("%d %d %c\n", i, size, c);
             fclose(file);
         }
         // if file not found in directory, returns error
@@ -252,7 +281,7 @@ int main(int argc, char *argv[]) {
         }
         else {
             printf("Listening...\n");
-        } 
+        }
 
         //TODO: socket timeout?
 

@@ -12,7 +12,7 @@
 #define MAXDATASIZE 100
 
 void write_file(int sockfd, char * fn, int file_length) {
-    char file_content[file_length];
+    char file_content[2048];
     int n;
     FILE *fp;
     fp = fopen(fn, "w");
@@ -22,11 +22,17 @@ void write_file(int sockfd, char * fn, int file_length) {
     }
 
     while(1) {
-        n = recv(sockfd, file_content, file_length, 0);
+        sleep(0.5);
+        n = recv(sockfd, file_content, 2048, 0);
         printf("client: received %d bytes: %s\n", n, file_content);
         if(n<=0) {
-            break;
-            return;
+            usleep(100000);
+            if((n=recv(sockfd, file_content, 2048, 0))<=0) {
+                return;
+            }
+            else {
+                continue;
+            }
         }
         fwrite(file_content, n, 1, fp);
         memset(file_content, 0, strlen(file_content));
