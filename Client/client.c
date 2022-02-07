@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 #define MAXDATASIZE 100
 
@@ -57,6 +58,13 @@ int main(int argc, char *argv[]) {
     struct addrinfo hints, *servinfo, *p;
     char s[INET6_ADDRSTRLEN];
 
+    // timing variables
+    time_t start, end;
+    double total_seconds, mbps;
+
+  
+    // start time
+    time(&start);
     // initialises the pointer and sets all allocated spacees to zero.
     memset(&hints, 0, sizeof hints);
     // sets it to accepts both IPv4 or IPv6
@@ -142,13 +150,19 @@ int main(int argc, char *argv[]) {
     int byte_order = htonl(atoi(buf));
     printf("client: received '%d'\n", byte_order);
 
+    
 
     write_file(sockfd, file_name, byte_order);
     
+    // end timing
+    time(&end);
 
-
-
-    //TODO: print the final exit of time and stuff
+    // convert bytes to bits then to megabits then divide by secondsr
+    total_seconds = (double) (end-start); // time in seconds
+    printf("%lf\n", total_seconds);
+    mbps = byte_order / 1000000;
+    mbps = mbps / total_seconds;
+    printf("%lf Mb/s\n", mbps);
 
     // closes connection
     close(sockfd);
