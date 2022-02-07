@@ -7,11 +7,12 @@ Client to Server (looping on the localhost)
 | 30 bytes      | bytes/s   |
 | 30 bytes      | bytes/s   |
 | 30 bytes      | bytes/s   |
-| 7670565 bytes | MB/s      |
-| 7670565 bytes | MB/s      |
-| 7670565 bytes | MB/s      |
-| 7670565 bytes | MB/s      |
-| 7670565 bytes | MB/s      |
+| 7670565 bytes | Mb/s      |
+| 7670565 bytes | Mb/s      |
+| 7670565 bytes | Mb/s      |
+| 7670565 bytes | Mb/s      |
+| 7670565 bytes | Mb/s      |
+
 
 
 Client to Separate CSE Machines
@@ -22,11 +23,11 @@ Client to Separate CSE Machines
 | 30 bytes      | bytes/s   |
 | 30 bytes      | bytes/s   |
 | 30 bytes      | bytes/s   |
-| 7670565 bytes | MB/s      |
-| 7670565 bytes | MB/s      |
-| 7670565 bytes | MB/s      |
-| 7670565 bytes | MB/s      |
-| 7670565 bytes | MB/s      |
+| 7670565 bytes | Mb/s      |
+| 7670565 bytes | Mb/s      |
+| 7670565 bytes | Mb/s      |
+| 7670565 bytes | Mb/s      |
+| 7670565 bytes | Mb/s      |
 
 
 Summary of Results:
