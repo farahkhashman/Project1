@@ -160,7 +160,8 @@ int main(int argc, char *argv[]) {
     // convert bytes to bits then to megabits then divide by secondsr
     total_seconds = (double) (end-start); // time in seconds
     printf("%lf\n", total_seconds);
-    mbps = byte_order / 1000000;
+    mbps = (double) byte_order;
+    mbps = mbps * 8 / 1000000;
     mbps = mbps / total_seconds;
     printf("%lf Mb/s\n", mbps);
 
